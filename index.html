@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나는 원장이다 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;500;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; overflow-x: auto; }
+        .fc-header-toolbar { font-size: 0.9em; margin-bottom: 1em !important; } 
+        #calendar { height: 800px !important; }
+        /* 탭 스타일 */
+        .tab-btn { @apply px-3 py-1 text-xs rounded-t-lg bg-gray-200 text-gray-600; }
+        .tab-btn.active { @apply bg-indigo-600 text-white font-bold; }
+    </style>
+</head>
+<body class="bg-gray-50 p-4">
+
+    <div class="min-w-[1280px] max-w-[1600px] mx-auto space-y-4">
+        
+        <header class="flex flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm">
+            <h1 class="text-2xl font-black text-gray-800 flex items-center gap-2">
+                ✂️ 나는 원장이다 <span class="text-blue-600 text-sm">Pro</span>
+            </h1>
+            <div class="flex gap-2">
+                <input id="naver-link" type="text" placeholder="네이버 캘린더 iCal 주소" class="border p-2 rounded text-xs w-64">
+                <button onclick="saveNaverLink()" class="bg-green-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-green-600">연동</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            
+            <div class="md:col-span-3 bg-white p-4 rounded-2xl shadow-md border border-gray-100">
+                <h2 class="text-lg font-bold mb-4 text-gray-800">📅 예약 스케줄</h2>
+                <div id='calendar'></div>
+            </div>
+
+            <div class="md:col-span-1 flex flex-col gap-4 h-[800px] overflow-y-auto">
+                
+                <div class="bg-yellow-50 p-4 rounded-2xl shadow-md border border-yellow-200">
+                    <h2 class="font-bold text-yellow-800 mb-2 flex justify-between">
+                        <span>💰 매출 장부</span> <span id="total-sales" class="text-red-600">0원</span>
+                    </h2>
+                    
+                    <div class="bg-white p-2 rounded mb-2 border">
+                        <canvas id="salesChart" height="100"></canvas>
+                    </div>
+
+                    <div class="flex flex-col gap-1 mb-2">
+                        <div class="flex gap-1">
+                            <input id="sale-date" type="date" class="border p-1 rounded text-xs w-1/3">
+                            <input id="sale-amount" type="number" placeholder="금액" class="border p-1 rounded text-xs w-1/3">
+                            <input id="sale-content" type="text" placeholder="내용" class="border p-1 rounded text-xs w-1/3">
+                        </div>
+                        <input id="sale-photo" type="text" placeholder="📸 시술 사진 주소 (인스타/블로그 링크)" class="border p-1 rounded text-xs w-full">
+                    </div>
+                    <button onclick="saveSale()" class="w-full bg-yellow-400 text-white py-1 rounded text-sm font-bold hover:bg-yellow-500">매출 등록</button>
+                    
+                    <div class="h-32 overflow-y-auto bg-white rounded border p-2 mt-2">
+                        <table class="w-full text-xs text-left"><tbody id="sales-list" class="divide-y"></tbody></table>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50 p-4 rounded-2xl shadow-md border border-indigo-100">
+                    <div class="flex gap-1 mb-2">
+                        <button onclick="switchTab('recipe')" id="tab-recipe" class="tab-btn active w-1/2">🧪 염색약 계산</button>
+                        <button onclick="switchTab('style')" id="tab-style" class="tab-btn w-1/2">💇‍♀️ 스타일 추천</button>
+                    </div>
+
+                    <div id="view-recipe">
+                        <div class="space-y-2 text-sm">
+                            <select id="proc-type" class="w-full p-2 rounded border"><option>전체염색</option><option>뿌리염색</option><option>탈색</option></select>
+                            <input id="target-color" type="text" placeholder="목표 색상" class="w-full p-2 rounded border">
+                            <div class="flex gap-2">
+                                <select id="hair-len" class="w-1/2 p-2 rounded border"><option>숏</option><option>미디움</option><option>롱</option></select>
+                                <select id="hair-cond" class="w-1/2 p-2 rounded border"><option>건강모</option><option>손상모</option><option>극손상모</option><option>새치머리</option><option>백모</option></select>
+                            </div>
+                            <button id="ai-btn-1" onclick="askRealAI()" class="w-full bg-indigo-600 text-white py-2 rounded font-bold mt-2">✨ 분석 시작</button>
+                        </div>
+                        <div id="ai-result" class="mt-2 hidden bg-white p-2 rounded border text-sm">
+                            <p>🧪 염색약:<span id="res-dye" class="font-bold"></span>g / 산화제:<span id="res-oxi" class="font-bold"></span>g</p>
+                            <p class="text-xs text-gray-500 mt-1" id="res-comment"></p>
+                        </div>
+                    </div>
+
+                    <div id="view-style" class="hidden">
+                        <div class="space-y-2 text-sm">
+                            <select id="st-gender" class="w-full p-2 rounded border"><option>여성</option><option>남성</option></select>
+                            <select id="st-face" class="w-full p-2 rounded border">
+                                <option>계란형 (Oval)</option>
+                                <option>둥근형 (Round)</option>
+                                <option>각진형 (Square)</option>
+                                <option>긴 얼굴형 (Long)</option>
+                            </select>
+                            <select id="st-trend" class="w-full p-2 rounded border">
+                                <option>2026 내추럴 트렌드</option>
+                                <option>K-POP 아이돌 스타일</option>
+                                <option>힙 & 스트릿</option>
+                                <option>단정 & 오피스</option>
+                            </select>
+                            <button id="ai-btn-2" onclick="askStyleAI()" class="w-full bg-purple-600 text-white py-2 rounded font-bold mt-2">💇‍♀️ 스타일 추천받기</button>
+                        </div>
+                        <div id="style-result" class="mt-2 hidden bg-white p-2 rounded border text-sm">
+                            <ul id="style-list" class="list-disc pl-4 space-y-1"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-pink-50 p-4 rounded-2xl shadow-md border border-pink-200">
+                    <h2 class="font-bold text-pink-900 mb-2">👥 손님 관리</h2>
+                    <div class="space-y-1 mb-2">
+                        <div class="flex gap-1">
+                            <input id="cust-name" placeholder="이름" class="w-1/2 p-1 border rounded text-xs">
+                            <input id="cust-phone" placeholder="전화(뒷4자리)" class="w-1/2 p-1 border rounded text-xs">
+                        </div>
+                        <input id="cust-memo" placeholder="메모" class="w-full p-1 border rounded text-xs">
+                        <div class="flex gap-1 items-center text-xs text-gray-600">
+                            <span>다음 방문:</span> <input id="cust-next" type="date" class="border p-1 rounded">
+                        </div>
+                    </div>
+                    <button onclick="saveCustomer()" class="w-full bg-pink-400 text-white py-1 rounded text-xs font-bold">등록</button>
+                    <div class="h-32 overflow-y-auto bg-white rounded border p-2 mt-2"><ul id="cust-list" class="text-xs space-y-2"></ul></div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-md">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="font-bold text-gray-800">📦 재고 현황</h2>
+                        <button onclick="openModal('add')" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">+ 추가</button>
+                    </div>
+                    <div class="h-24 overflow-y-auto"><table class="w-full text-xs"><tbody id="stock-list" class="divide-y"></tbody></table></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="product-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white w-80 p-6 rounded-lg shadow-xl">
+            <h3 class="font-bold mb-4">재고 등록</h3>
+            <input id="in-name" placeholder="제품명" class="w-full border p-2 mb-2"><input id="in-weight" type="number" placeholder="무게" class="w-full border p-2 mb-2"><input id="in-count" type="number" placeholder="수량" class="w-full border p-2 mb-2"><input id="in-thres" type="number" placeholder="알림기준" class="w-full border p-2 mb-4">
+            <button onclick="saveProduct()" class="w-full bg-blue-600 text-white py-2 rounded">저장</button>
+            <button onclick="document.getElementById('product-modal').classList.add('hidden')" class="w-full mt-2 text-gray-500 text-xs">닫기</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+        let salesChart = null; // 차트 변수
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('sale-date').valueAsDate = new Date();
+            const next = new Date(); next.setDate(next.getDate() + 28);
+            document.getElementById('cust-next').valueAsDate = next;
+
+            var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+                initialView: 'dayGridMonth', locale: 'ko', height: '800px',
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth' },
+                events: loadNaverEvents
+            });
+            calendar.render();
+            
+            const savedLink = localStorage.getItem("naver_ical");
+            if(savedLink) document.getElementById("naver-link").value = savedLink;
+            
+            loadProducts(); loadSales(); loadCustomers();
+        });
+
+        // --- 탭 전환 함수 ---
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('view-recipe').classList.add('hidden');
+            document.getElementById('view-style').classList.add('hidden');
+            
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+        }
+
+        // --- 매출 & 차트 & 사진 ---
+        async function loadSales() {
+            const res = await fetch(`${API_URL}/sales`);
+            const data = await res.json();
+            const list = document.getElementById("sales-list");
+            list.innerHTML = "";
+            let total = 0;
+            
+            // 차트 데이터 준비
+            const chartData = {};
+
+            data.forEach(item => {
+                total += item.amount;
+                // 차트용 집계 (날짜별 합계)
+                if (chartData[item.date]) chartData[item.date] += item.amount;
+                else chartData[item.date] = item.amount;
+
+                // 사진 링크 버튼
+                const photoBtn = item.photo_link ? `<a href="${item.photo_link}" target="_blank" class="text-blue-500 font-bold ml-1">📷</a>` : "";
+
+                list.innerHTML += `<tr class="border-b"><td class="p-1 text-gray-500">${item.date.slice(5)}</td><td class="p-1">${item.content} ${photoBtn}</td><td class="p-1 font-bold text-right">${item.amount.toLocaleString()}</td><td class="p-1 text-right"><button onclick="deleteSale(${item.id})" class="text-red-400">x</button></td></tr>`;
+            });
+            document.getElementById("total-sales").innerText = total.toLocaleString() + "원";
+            drawChart(chartData); // 차트 그리기
+        }
+
+        function drawChart(dataObj) {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            const sortedDates = Object.keys(dataObj).sort(); // 날짜순 정렬
+            const amounts = sortedDates.map(d => dataObj[d]);
+
+            if (salesChart) salesChart.destroy(); // 기존 차트 삭제
+
+            salesChart = new Chart(ctx, {
+                type: 'line', // 선 그래프
+                data: {
+                    labels: sortedDates.map(d => d.slice(5)), // 월-일만 표시
+                    datasets: [{ label: '일매출', data: amounts, borderColor: '#fbbf24', tension: 0.1, fill: false }]
+                },
+                options: { responsive: true, plugins: { legend: {display: false} } }
+            });
+        }
+
+        async function saveSale() {
+            const date = document.getElementById("sale-date").value;
+            const content = document.getElementById("sale-content").value;
+            const amount = document.getElementById("sale-amount").value;
+            const photo_link = document.getElementById("sale-photo").value; // 사진 링크
+
+            if(!date || !amount) return alert("입력 확인");
+            await fetch(`${API_URL}/sales`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ date, amount: Number(amount), content, photo_link })
+            });
+            document.getElementById("sale-content").value = ""; document.getElementById("sale-amount").value = ""; document.getElementById("sale-photo").value = "";
+            loadSales();
+        }
+        async function deleteSale(id) { if(confirm("삭제?")) { await fetch(`${API_URL}/sales/${id}`, { method: "DELETE" }); loadSales(); } }
+
+        // --- 손님 관리 ---
+        async function loadCustomers() {
+            const res = await fetch(`${API_URL}/customers`); const data = await res.json();
+            const list = document.getElementById("cust-list"); list.innerHTML = "";
+            const today = new Date().toISOString().split('T')[0];
+            data.forEach(c => {
+                const isUrgent = c.next_visit <= today;
+                const badge = isUrgent ? `<span class="bg-red-500 text-white px-1 rounded ml-1 animate-pulse">재방문!</span>` : "";
+                list.innerHTML += `<li class="border-b pb-1"><div class="flex justify-between font-bold"><span>${c.name} (${c.phone}) ${badge}</span><button onclick="deleteCustomer(${c.id})" class="text-gray-300">x</button></div><div class="text-[10px] text-gray-500">${c.memo}</div><div class="text-right text-blue-600 text-[10px]">${c.next_visit}</div></li>`;
+            });
+        }
+        async function saveCustomer() {
+            const name = document.getElementById("cust-name").value; const phone = document.getElementById("cust-phone").value; const memo = document.getElementById("cust-memo").value; const next_visit = document.getElementById("cust-next").value;
+            if(!name) return alert("이름 필수");
+            await fetch(`${API_URL}/customers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, phone, memo, last_visit: new Date().toISOString().split('T')[0], next_visit }) });
+            document.getElementById("cust-name").value = ""; document.getElementById("cust-phone").value = ""; document.getElementById("cust-memo").value = ""; loadCustomers();
+        }
+        async function deleteCustomer(id) { if(confirm("삭제?")) { await fetch(`${API_URL}/customers/${id}`, { method: "DELETE" }); loadCustomers(); } }
+
+        // --- AI (스타일 추천 + 염색) ---
+        async function askRealAI() {
+            const btn = document.getElementById('ai-btn-1'); const origin = btn.innerText; btn.innerText = "⏳ 계산 중..."; btn.disabled = true;
+            try {
+                const res = await fetch(`${API_URL}/procedure/calculate_ai`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ procedure_type: document.getElementById("proc-type").value, target_color: document.getElementById("target-color").value, hair_length: document.getElementById("hair-len").value, hair_condition: document.getElementById("hair-cond").value }) });
+                const data = await res.json();
+                document.getElementById("ai-result").classList.remove("hidden"); document.getElementById("res-dye").innerText = data.dye_g; document.getElementById("res-oxi").innerText = data.oxidizer_g; document.getElementById("res-comment").innerText = data.comment;
+            } catch(e) { alert("AI 오류"); } finally { btn.innerText = origin; btn.disabled = false; }
+        }
+
+        async function askStyleAI() {
+            const btn = document.getElementById('ai-btn-2'); const origin = btn.innerText; btn.innerText = "⏳ 추천 중..."; btn.disabled = true;
+            try {
+                const res = await fetch(`${API_URL}/procedure/recommend_style`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        face_shape: document.getElementById("st-face").value,
+                        current_trend: document.getElementById("st-trend").value,
+                        gender: document.getElementById("st-gender").value
+                    })
+                });
+                const data = await res.json();
+                document.getElementById("style-result").classList.remove("hidden");
+                const list = document.getElementById("style-list"); list.innerHTML = "";
+                data.recommendations.forEach(rec => { list.innerHTML += `<li>${rec}</li>`; });
+            } catch(e) { alert("AI 오류"); } finally { btn.innerText = origin; btn.disabled = false; }
+        }
+
+        // --- 기타 ---
+        async function loadNaverEvents(info, success, failure) { /* 기존 동일 */ const link = localStorage.getItem("naver_ical"); if (!link) return success([]); try { const res = await fetch(`${API_URL}/reservations/naver`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ical_url: link }) }); success(await res.json()); } catch { failure(); } }
+        function saveNaverLink() { localStorage.setItem("naver_ical", document.getElementById("naver-link").value); }
+        async function loadProducts() { /* 기존 동일 */ const res = await fetch(`${API_URL}/products`); const data = await res.json(); const list = document.getElementById("stock-list"); list.innerHTML = ""; data.forEach(item => { list.innerHTML += `<tr class="border-b"><td class="p-2">${item.name}</td><td class="p-2 text-right">${item.total_weight_g}</td><td class="p-2 text-right"><button onclick='deleteProduct(${item.id})' class="text-red-400">x</button></td></tr>`; }); }
+        function openModal() { document.getElementById('product-modal').classList.remove('hidden'); }
+        async function saveProduct() { await fetch(`${API_URL}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: document.getElementById('in-name').value, unit_weight_g: Number(document.getElementById('in-weight').value), stock_count: Number(document.getElementById('in-count').value), threshold_g: Number(document.getElementById('in-thres').value) }) }); document.getElementById('product-modal').classList.add('hidden'); loadProducts(); }
+        async function deleteProduct(id) { await fetch(`${API_URL}/products/${id}`, { method: "DELETE" }); loadProducts(); }
+    </script>
+</body>
+</html>
