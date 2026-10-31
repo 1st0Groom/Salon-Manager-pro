@@ -1,8 +1,11 @@
+import os
 import google.generativeai as genai
 
 # ==========================================
-# [중요] 여기에 API 키를 붙여넣으세요
-GOOGLE_API_KEY = "AIzaSyCdlKee_xcSAfnFc32jFzrpALKG74AB0UE"
+# Set GOOGLE_API_KEY in the environment; never paste it into source.
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise SystemExit("Set the GOOGLE_API_KEY environment variable before running this script.")
 # ==========================================
 
 genai.configure(api_key=GOOGLE_API_KEY)
